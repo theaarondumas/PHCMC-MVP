@@ -124,7 +124,7 @@ function render() {
 }
 
 function clearForm(hideWarn=true) {
-  // author stays (saved), so we don't clear it automatically
+  // author stays
   $("shift").value = "";
   $("unit").value = "";
   $("type").value = "Replenishment";
@@ -237,6 +237,85 @@ function printAll() {
   window.print();
 }
 
+/* ---------- NEW: Selected Table View (HTML) ---------- */
+function openSelectedTable() {
+  const selected = getSelectedLogs().sort((a,b) => (a.ts||0) - (b.ts||0));
+  if (!selected.length) return;
+
+  const title = `UnitFlow — Selected (${selectionScope === "today" ? "Today" : "Week"})`;
+  const generated = new Date().toLocaleString();
+
+  const rowsHtml = selected.map(l => {
+    const when = new Date(l.ts).toLocaleString();
+    const notes = (l.notes || "").trim().replaceAll("\n", "<br>");
+    return `
+      <tr>
+        <td>${escapeHtml(when)}</td>
+        <td>${escapeHtml(l.author || "")}</td>
+        <td>${escapeHtml(l.shift || "")}</td>
+        <td>${escapeHtml(l.unit || "")}</td>
+        <td>${escapeHtml(l.type || "")}</td>
+        <td>${escapeHtml(l.severity || "")}</td>
+        <td>${escapeHtml(l.qty ?? "")}</td>
+        <td>${escapeHtml(notes)}</td>
+      </tr>
+    `;
+  }).join("");
+
+  const html = `<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>${escapeHtml(title)}</title>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; padding: 16px; }
+    h1 { margin: 0 0 6px 0; font-size: 18px; }
+    .meta { margin: 0 0 14px 0; color: #555; font-size: 12px; }
+    table { width: 100%; border-collapse: collapse; font-size: 12px; }
+    th, td { border: 1px solid #ddd; padding: 8px; vertical-align: top; }
+    th { background: #f5f5f5; text-align: left; }
+    .tip { margin-top: 12px; font-size: 12px; color: #555; }
+    @media print { .tip { display: none; } }
+  </style>
+</head>
+<body>
+  <h1>${escapeHtml(title)}</h1>
+  <p class="meta">Generated: ${escapeHtml(generated)} • Items: ${selected.length}</p>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Time</th>
+        <th>Author</th>
+        <th>Shift</th>
+        <th>Unit</th>
+        <th>Type</th>
+        <th>Severity</th>
+        <th>Qty</th>
+        <th>Notes</th>
+      </tr>
+    </thead>
+    <tbody>
+      ${rowsHtml}
+    </tbody>
+  </table>
+
+  <p class="tip">Tip: iPhone → Share → Print → pinch/zoom preview → Share → Save to Files (PDF).</p>
+</body>
+</html>`;
+
+  const w = window.open("", "_blank");
+  if (!w) {
+    alert("Pop-up blocked. Please allow pop-ups for this site, then try again.");
+    return;
+  }
+  w.document.open();
+  w.document.write(html);
+  w.document.close();
+  w.focus();
+}
+
 /* ---------- Event Listeners ---------- */
 
 // Prefill author from device storage
@@ -303,43 +382,5 @@ document.addEventListener("change", (e) => {
 });
 
 // Selected actions
-$("exportSelectedBtn").addEventListener("click", exportSelectedCsv);
-$("printSelectedBtn").addEventListener("click", printSelected);
-
-// All actions (New Log tab)
-$("exportCsvBtnAll").addEventListener("click", exportAllCsv);
-$("printBtnAll").addEventListener("click", printAll);
-
-// Purge
-$("purgeBtn").addEventListener("click", () => {
-  const ok = confirm("Clear ALL logs from this device? This cannot be undone.");
-  if (!ok) return;
-  localStorage.removeItem(LS_KEY);
-  setSelecting(false);
-  render();
-  setTab("today");
-});
-
-// PWA install prompt
-let deferredPrompt = null;
-window.addEventListener("beforeinstallprompt", (e) => {
-  e.preventDefault();
-  deferredPrompt = e;
-  $("installBtn").hidden = false;
-});
-$("installBtn").addEventListener("click", async () => {
-  if (!deferredPrompt) return;
-  deferredPrompt.prompt();
-  await deferredPrompt.userChoice;
-  deferredPrompt = null;
-  $("installBtn").hidden = true;
-});
-
-// Register service worker
-if ("serviceWorker" in navigator) {
-  window.addEventListener("load", () => {
-    navigator.serviceWorker.register("sw.js").catch(()=>{});
-  });
-}
-
-render();
+$("viewSelectedBtn").addEventListener("click", openSelectedTable);
+$("exportSelectedBtn").addEventListener("click", exportSelected
