@@ -1,4 +1,4 @@
-const CACHE = "unitflow-cache-v2";
+const CACHE = "unitflow-cache-v3";
 const ASSETS = [
   "./",
   "./index.html",
