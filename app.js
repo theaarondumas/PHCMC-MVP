@@ -15,6 +15,7 @@ let selectMode = false;
 let selectionScope = "today"; // "today" or "week"
 let selectedIds = new Set();
 
+/* ---------- Date Helpers ---------- */
 function startOfToday() {
   const d = new Date();
   d.setHours(0,0,0,0);
@@ -30,6 +31,7 @@ function startOfWeek() {
   return d.getTime();
 }
 
+/* ---------- Storage ---------- */
 function loadLogs() {
   try { return JSON.parse(localStorage.getItem(LS_KEY) || "[]"); }
   catch { return []; }
@@ -47,6 +49,7 @@ function saveAuthor(name) {
   localStorage.setItem(LS_AUTHOR_KEY, (name || "").trim());
 }
 
+/* ---------- PHI Guard ---------- */
 function phiLikely(text) {
   if (!text) return false;
   const patterns = [
@@ -59,6 +62,7 @@ function phiLikely(text) {
   return patterns.some(r => r.test(text));
 }
 
+/* ---------- Utils ---------- */
 function escapeHtml(str) {
   return String(str)
     .replaceAll("&","&amp;")
@@ -73,8 +77,58 @@ function setTab(name) {
   Object.entries(panes).forEach(([k, pane]) => pane.classList.toggle("active", k === name));
 }
 
-tabs.forEach(t => t.addEventListener("click", () => setTab(t.dataset.tab)));
+/* ---------- Selection Mode Helpers ---------- */
+function setSelecting(on, scope) {
+  selectMode = on;
+  selectionScope = scope || selectionScope;
 
+  document.body.classList.toggle("selecting", selectMode);
+  document.body.dataset.scope = selectionScope;
+
+  selectedIds.clear();
+  clearSelectedUI();
+  $("actionBar").hidden = true;
+  $("selectedCount").textContent = "0 selected";
+
+  // keep user on the correct tab when entering select mode
+  if (selectMode) setTab(selectionScope);
+
+  // re-render so checkboxes enable/disable correctly
+  render();
+}
+
+function clearSelectedUI() {
+  document.querySelectorAll(".item.selected").forEach(n => n.classList.remove("selected"));
+  document.querySelectorAll(".selectBox:checked").forEach(cb => { cb.checked = false; });
+}
+
+function updateActionBar() {
+  $("selectedCount").textContent = `${selectedIds.size} selected`;
+  $("actionBar").hidden = !(selectMode && selectedIds.size > 0);
+}
+
+function syncSelectedUI() {
+  document.querySelectorAll(".item").forEach(item => {
+    const id = item.dataset.id;
+    const cb = item.querySelector(".selectBox");
+    if (!cb) return;
+
+    // Disable checkboxes if not in select mode
+    cb.disabled = !selectMode;
+
+    const isSelected = selectedIds.has(id);
+    cb.checked = isSelected;
+    item.classList.toggle("selected", isSelected);
+  });
+  updateActionBar();
+}
+
+function getSelectedLogs() {
+  const logs = loadLogs();
+  return logs.filter(l => selectedIds.has(l.id));
+}
+
+/* ---------- Rendering ---------- */
 function entryNode(l, scope) {
   const el = document.createElement("div");
   el.className = "item";
@@ -84,16 +138,16 @@ function entryNode(l, scope) {
   const sevClass = l.severity === "High" ? "high" : (l.severity === "Medium" ? "med" : "low");
   const when = new Date(l.ts).toLocaleString();
   const who = l.author ? ` • ${escapeHtml(l.author)}` : "";
-  const qty = (l.qty !== "" && l.qty != null) ? ` • Qty: ${l.qty}` : "";
+  const qty = (l.qty !== "" && l.qty != null) ? ` • Qty: ${escapeHtml(l.qty)}` : "";
   const unit = l.unit ? ` • ${escapeHtml(l.unit)}` : "";
   const shift = l.shift ? ` • ${escapeHtml(l.shift)}` : "";
 
   el.innerHTML = `
     <div class="item-top">
-      <input type="checkbox" class="selectBox" data-id="${escapeHtml(l.id)}" />
+      <input type="checkbox" class="selectBox" data-id="${escapeHtml(l.id)}" aria-label="Select entry" />
       <div class="left">
         <div><strong>${escapeHtml(l.type || "Entry")}</strong></div>
-        <div class="meta">${when}${who}${shift}${unit}${qty}</div>
+        <div class="meta">${escapeHtml(when)}${who}${shift}${unit}${qty}</div>
         ${l.notes ? `<div class="meta">${escapeHtml(l.notes)}</div>` : ""}
       </div>
     </div>
@@ -120,9 +174,11 @@ function render() {
   todayLogs.forEach(l => $("todayList").appendChild(entryNode(l, "today")));
   weekLogs.forEach(l => $("weekList").appendChild(entryNode(l, "week")));
 
-  if (selectMode) syncSelectedUI();
+  // Make sure checkbox state matches mode
+  syncSelectedUI();
 }
 
+/* ---------- Form ---------- */
 function clearForm(hideWarn=true) {
   // author stays
   $("shift").value = "";
@@ -134,53 +190,7 @@ function clearForm(hideWarn=true) {
   if (hideWarn) $("phiWarn").hidden = true;
 }
 
-/* ---------- Selection Mode Helpers ---------- */
-function setSelecting(on, scope) {
-  selectMode = on;
-  selectionScope = scope || selectionScope;
-
-  document.body.classList.toggle("selecting", selectMode);
-  document.body.dataset.scope = selectionScope;
-
-  if (!selectMode) {
-    selectedIds.clear();
-    clearSelectedUI();
-    $("actionBar").hidden = true;
-  } else {
-    selectedIds.clear();
-    clearSelectedUI();
-    $("actionBar").hidden = true; // show only after 1+ checked
-    $("selectedCount").textContent = "0 selected";
-  }
-}
-
-function clearSelectedUI() {
-  document.querySelectorAll(".item.selected").forEach(n => n.classList.remove("selected"));
-  document.querySelectorAll(".selectBox:checked").forEach(cb => { cb.checked = false; });
-}
-
-function updateActionBar() {
-  $("selectedCount").textContent = `${selectedIds.size} selected`;
-  $("actionBar").hidden = !(selectMode && selectedIds.size > 0);
-}
-
-function syncSelectedUI() {
-  document.querySelectorAll(".item").forEach(item => {
-    const id = item.dataset.id;
-    const cb = item.querySelector(".selectBox");
-    if (!cb) return;
-    const isSelected = selectedIds.has(id);
-    cb.checked = isSelected;
-    item.classList.toggle("selected", isSelected);
-  });
-  updateActionBar();
-}
-
-function getSelectedLogs() {
-  const logs = loadLogs();
-  return logs.filter(l => selectedIds.has(l.id));
-}
-
+/* ---------- Export ---------- */
 function exportCsvFromLogs(logs, filenamePrefix) {
   const header = ["timestamp","author","shift","unit","type","severity","qty","notes"];
   const rows = logs.map(l => ([
@@ -200,12 +210,14 @@ function exportCsvFromLogs(logs, filenamePrefix) {
 
   const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
   const url = URL.createObjectURL(blob);
+
   const a = document.createElement("a");
   a.href = url;
   a.download = `${filenamePrefix}_${new Date().toISOString().slice(0,10)}.csv`;
   document.body.appendChild(a);
   a.click();
   a.remove();
+
   URL.revokeObjectURL(url);
 }
 
@@ -221,9 +233,11 @@ function exportAllCsv() {
   exportCsvFromLogs(logs, "unitflow_all");
 }
 
+/* ---------- Print ---------- */
 function printSelected() {
   if (selectedIds.size === 0) return;
 
+  // Ensure we are on the correct tab before printing
   setTab(selectionScope);
   document.body.classList.add("printing-selected");
 
@@ -234,10 +248,11 @@ function printSelected() {
 }
 
 function printAll() {
+  document.body.classList.remove("printing-selected");
   window.print();
 }
 
-/* ---------- NEW: Selected Table View (HTML) ---------- */
+/* ---------- Selected Table View (HTML) ---------- */
 function openSelectedTable() {
   const selected = getSelectedLogs().sort((a,b) => (a.ts||0) - (b.ts||0));
   if (!selected.length) return;
@@ -247,7 +262,6 @@ function openSelectedTable() {
 
   const rowsHtml = selected.map(l => {
     const when = new Date(l.ts).toLocaleString();
-    const notes = (l.notes || "").trim().replaceAll("\n", "<br>");
     return `
       <tr>
         <td>${escapeHtml(when)}</td>
@@ -257,7 +271,7 @@ function openSelectedTable() {
         <td>${escapeHtml(l.type || "")}</td>
         <td>${escapeHtml(l.severity || "")}</td>
         <td>${escapeHtml(l.qty ?? "")}</td>
-        <td>${escapeHtml(notes)}</td>
+        <td>${escapeHtml((l.notes || "").trim())}</td>
       </tr>
     `;
   }).join("");
@@ -316,15 +330,25 @@ function openSelectedTable() {
   w.focus();
 }
 
-/* ---------- Event Listeners ---------- */
+/* ---------- Tabs (FIX: always exit select mode) ---------- */
+tabs.forEach(t => t.addEventListener("click", (e) => {
+  e.preventDefault();
+  const target = t.dataset.tab;
 
-// Prefill author from device storage
+  // KEY FIX: leaving select mode prevents tab bar from feeling "dead" on iOS
+  if (selectMode) setSelecting(false);
+
+  setTab(target);
+}));
+
+/* ---------- Init ---------- */
+// Prefill author
 const savedAuthor = loadAuthor();
 if ($("author")) $("author").value = savedAuthor;
 
 // Save entry
 $("saveBtn").addEventListener("click", () => {
-  const authorInput = $("author") ? $("author").value.trim() : "";
+  const authorInput = ($("author") ? $("author").value.trim() : "");
   if (authorInput) saveAuthor(authorInput);
 
   const entry = {
@@ -365,10 +389,17 @@ document.addEventListener("change", (e) => {
   const cb = e.target;
   if (!cb.classList || !cb.classList.contains("selectBox")) return;
 
+  // Ignore checkbox changes if not in select mode
+  if (!selectMode) {
+    cb.checked = false;
+    return;
+  }
+
   const id = cb.dataset.id;
   const item = cb.closest(".item");
   if (!id || !item) return;
 
+  // Only allow selecting inside current scope
   if (item.dataset.scope !== selectionScope) {
     cb.checked = false;
     return;
@@ -383,4 +414,22 @@ document.addEventListener("change", (e) => {
 
 // Selected actions
 $("viewSelectedBtn").addEventListener("click", openSelectedTable);
-$("exportSelectedBtn").addEventListener("click", exportSelected
+$("exportSelectedBtn").addEventListener("click", exportSelectedCsv);
+$("printSelectedBtn").addEventListener("click", printSelected);
+
+// All actions
+$("exportCsvBtnAll").addEventListener("click", exportAllCsv);
+$("printBtnAll").addEventListener("click", printAll);
+
+// Purge
+$("purgeBtn").addEventListener("click", () => {
+  if (!confirm("Clear ALL logs from this device?")) return;
+  localStorage.removeItem(LS_KEY);
+  selectedIds.clear();
+  setSelecting(false);
+  render();
+  setTab("today");
+});
+
+// First render
+render();
