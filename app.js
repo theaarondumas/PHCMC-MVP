@@ -1,4 +1,5 @@
 const LS_KEY = "unitflow_logs_v1";
+const LS_AUTHOR_KEY = "unitflow_author_v1";
 
 const $ = (id) => document.getElementById(id);
 
@@ -13,10 +14,6 @@ const panes = {
 let selectMode = false;
 let selectionScope = "today"; // "today" or "week"
 let selectedIds = new Set();
-
-function nowISO() {
-  return new Date().toISOString();
-}
 
 function startOfToday() {
   const d = new Date();
@@ -40,6 +37,14 @@ function loadLogs() {
 
 function saveLogs(logs) {
   localStorage.setItem(LS_KEY, JSON.stringify(logs));
+}
+
+function loadAuthor() {
+  return (localStorage.getItem(LS_AUTHOR_KEY) || "").trim();
+}
+
+function saveAuthor(name) {
+  localStorage.setItem(LS_AUTHOR_KEY, (name || "").trim());
 }
 
 function phiLikely(text) {
@@ -78,6 +83,7 @@ function entryNode(l, scope) {
 
   const sevClass = l.severity === "High" ? "high" : (l.severity === "Medium" ? "med" : "low");
   const when = new Date(l.ts).toLocaleString();
+  const who = l.author ? ` • ${escapeHtml(l.author)}` : "";
   const qty = (l.qty !== "" && l.qty != null) ? ` • Qty: ${l.qty}` : "";
   const unit = l.unit ? ` • ${escapeHtml(l.unit)}` : "";
   const shift = l.shift ? ` • ${escapeHtml(l.shift)}` : "";
@@ -87,7 +93,7 @@ function entryNode(l, scope) {
       <input type="checkbox" class="selectBox" data-id="${escapeHtml(l.id)}" />
       <div class="left">
         <div><strong>${escapeHtml(l.type || "Entry")}</strong></div>
-        <div class="meta">${when}${shift}${unit}${qty}</div>
+        <div class="meta">${when}${who}${shift}${unit}${qty}</div>
         ${l.notes ? `<div class="meta">${escapeHtml(l.notes)}</div>` : ""}
       </div>
     </div>
@@ -118,6 +124,7 @@ function render() {
 }
 
 function clearForm(hideWarn=true) {
+  // author stays (saved), so we don't clear it automatically
   $("shift").value = "";
   $("unit").value = "";
   $("type").value = "Replenishment";
@@ -127,7 +134,7 @@ function clearForm(hideWarn=true) {
   if (hideWarn) $("phiWarn").hidden = true;
 }
 
-// ---------- Selection Mode Helpers ----------
+/* ---------- Selection Mode Helpers ---------- */
 function setSelecting(on, scope) {
   selectMode = on;
   selectionScope = scope || selectionScope;
@@ -175,9 +182,10 @@ function getSelectedLogs() {
 }
 
 function exportCsvFromLogs(logs, filenamePrefix) {
-  const header = ["timestamp","shift","unit","type","severity","qty","notes"];
+  const header = ["timestamp","author","shift","unit","type","severity","qty","notes"];
   const rows = logs.map(l => ([
     new Date(l.ts).toISOString(),
+    l.author || "",
     l.shift || "",
     l.unit || "",
     l.type || "",
@@ -216,33 +224,34 @@ function exportAllCsv() {
 function printSelected() {
   if (selectedIds.size === 0) return;
 
-  // ensure visible list matches scope (today/week)
   setTab(selectionScope);
-
-  // hide everything not selected during print
   document.body.classList.add("printing-selected");
 
-  // give browser a tick to apply CSS before print
   setTimeout(() => {
     window.print();
-    // remove print-only class after user returns
     setTimeout(() => document.body.classList.remove("printing-selected"), 400);
   }, 50);
 }
 
 function printAll() {
-  // printing ALL just prints whatever tab you're on; simplest: switch to week to show more
-  // You can change this behavior later if you want a dedicated "All Logs" print view.
   window.print();
 }
 
-// ---------- Event Listeners ----------
+/* ---------- Event Listeners ---------- */
+
+// Prefill author from device storage
+const savedAuthor = loadAuthor();
+if ($("author")) $("author").value = savedAuthor;
 
 // Save entry
 $("saveBtn").addEventListener("click", () => {
+  const authorInput = $("author") ? $("author").value.trim() : "";
+  if (authorInput) saveAuthor(authorInput);
+
   const entry = {
     id: (crypto.randomUUID ? crypto.randomUUID() : String(Date.now())),
     ts: Date.now(),
+    author: authorInput || loadAuthor(),
     shift: $("shift").value.trim(),
     unit: $("unit").value.trim(),
     type: $("type").value,
@@ -281,7 +290,6 @@ document.addEventListener("change", (e) => {
   const item = cb.closest(".item");
   if (!id || !item) return;
 
-  // enforce scope
   if (item.dataset.scope !== selectionScope) {
     cb.checked = false;
     return;
@@ -302,6 +310,7 @@ $("printSelectedBtn").addEventListener("click", printSelected);
 $("exportCsvBtnAll").addEventListener("click", exportAllCsv);
 $("printBtnAll").addEventListener("click", printAll);
 
+// Purge
 $("purgeBtn").addEventListener("click", () => {
   const ok = confirm("Clear ALL logs from this device? This cannot be undone.");
   if (!ok) return;
