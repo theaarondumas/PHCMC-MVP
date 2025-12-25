@@ -9,11 +9,12 @@
   <link rel="stylesheet" href="styles.css" />
   <title>UnitFlow</title>
 </head>
+
 <body>
   <header class="top">
     <div>
       <h1>UnitFlow</h1>
-      <p class="sub">PHI-free quick log • Today + Week • Export CSV/PDF</p>
+      <p class="sub">PHI-free quick log • Today + Week • Select → Export/Print</p>
     </div>
     <button id="installBtn" class="btn ghost" hidden>Install</button>
   </header>
@@ -26,22 +27,35 @@
         <button class="tab" data-tab="new">New Log</button>
       </div>
 
+      <!-- TODAY -->
       <div id="tab-today" class="tabpane active">
         <div class="row">
           <h2>Today</h2>
           <span id="todayCount" class="pill">0 entries</span>
         </div>
+
+        <div class="actions">
+          <button id="selectTodayBtn" class="btn">Select Items</button>
+        </div>
+
         <div id="todayList" class="list"></div>
       </div>
 
+      <!-- WEEK -->
       <div id="tab-week" class="tabpane">
         <div class="row">
           <h2>This Week</h2>
           <span id="weekCount" class="pill">0 entries</span>
         </div>
+
+        <div class="actions">
+          <button id="selectWeekBtn" class="btn">Select Items</button>
+        </div>
+
         <div id="weekList" class="list"></div>
       </div>
 
+      <!-- NEW LOG -->
       <div id="tab-new" class="tabpane">
         <h2>New Log Entry</h2>
 
@@ -104,17 +118,33 @@
 
         <hr class="line" />
 
+        <h3 class="h3">All-logs export (optional)</h3>
+        <p class="sub">Use these if you want to export/print everything stored on-device.</p>
+
         <div class="actions">
-          <button id="exportCsvBtn" class="btn">Export CSV</button>
-          <button id="printBtn" class="btn">Print / PDF</button>
+          <button id="exportCsvBtnAll" class="btn">Export ALL CSV</button>
+          <button id="printBtnAll" class="btn">Print / PDF (ALL)</button>
           <button id="purgeBtn" class="btn danger">Clear All Logs</button>
         </div>
       </div>
+
+      <!-- SELECTION ACTION BAR (shows only after selecting items) -->
+      <div id="actionBar" class="actionbar" hidden>
+        <div class="actionbar-left">
+          <span id="selectedCount" class="pill">0 selected</span>
+        </div>
+        <div class="actionbar-right">
+          <button id="cancelSelectBtn" class="btn ghost">Cancel</button>
+          <button id="printSelectedBtn" class="btn">Print Selected</button>
+          <button id="exportSelectedBtn" class="btn primary">Export Selected</button>
+        </div>
+      </div>
+
     </section>
 
     <footer class="foot">
       <p class="sub">
-        Tip: Use Print → “Save as PDF” on iPhone/desktop. Data stays on-device (LocalStorage).
+        Tip: iPhone PDF = Print → pinch/zoom preview → Share → Save to Files.
       </p>
     </footer>
   </main>
