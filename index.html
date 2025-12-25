@@ -1,1 +1,124 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <meta name="theme-color" content="#0b0c10" />
+  <link rel="manifest" href="manifest.json" />
+  <link rel="icon" href="icons/icon-192.png" />
+  <link rel="stylesheet" href="styles.css" />
+  <title>UnitFlow</title>
+</head>
+<body>
+  <header class="top">
+    <div>
+      <h1>UnitFlow</h1>
+      <p class="sub">PHI-free quick log • Today + Week • Export CSV/PDF</p>
+    </div>
+    <button id="installBtn" class="btn ghost" hidden>Install</button>
+  </header>
 
+  <main class="wrap">
+    <section class="card">
+      <div class="tabs">
+        <button class="tab active" data-tab="today">Today</button>
+        <button class="tab" data-tab="week">Week</button>
+        <button class="tab" data-tab="new">New Log</button>
+      </div>
+
+      <div id="tab-today" class="tabpane active">
+        <div class="row">
+          <h2>Today</h2>
+          <span id="todayCount" class="pill">0 entries</span>
+        </div>
+        <div id="todayList" class="list"></div>
+      </div>
+
+      <div id="tab-week" class="tabpane">
+        <div class="row">
+          <h2>This Week</h2>
+          <span id="weekCount" class="pill">0 entries</span>
+        </div>
+        <div id="weekList" class="list"></div>
+      </div>
+
+      <div id="tab-new" class="tabpane">
+        <h2>New Log Entry</h2>
+
+        <div class="grid">
+          <label class="field">
+            <span>Shift (optional)</span>
+            <select id="shift">
+              <option value="">—</option>
+              <option>Day</option>
+              <option>PM</option>
+              <option>Night</option>
+            </select>
+          </label>
+
+          <label class="field">
+            <span>Unit/Area (optional)</span>
+            <input id="unit" maxlength="30" placeholder="e.g., Med/Surg" />
+          </label>
+
+          <label class="field">
+            <span>Supply Type</span>
+            <select id="type">
+              <option>Replenishment</option>
+              <option>Stockout</option>
+              <option>Missing Item</option>
+              <option>Damage</option>
+              <option>Delivery</option>
+              <option>Other</option>
+            </select>
+          </label>
+
+          <label class="field">
+            <span>Severity</span>
+            <select id="severity">
+              <option>Low</option>
+              <option>Medium</option>
+              <option>High</option>
+            </select>
+          </label>
+
+          <label class="field">
+            <span>Quantity (optional)</span>
+            <input id="qty" type="number" min="0" max="9999" inputmode="numeric" placeholder="0" />
+          </label>
+
+          <label class="field full">
+            <span>Notes (PHI-free, keep generic)</span>
+            <textarea id="notes" maxlength="180" placeholder="Example: ‘Missing IV start kits on cart 3’ (no patient details)."></textarea>
+          </label>
+        </div>
+
+        <div class="warn" id="phiWarn" hidden>
+          Heads up: keep entries PHI-free (no names, DOB, MRN, room #).
+        </div>
+
+        <div class="actions">
+          <button id="saveBtn" class="btn primary">Save Entry</button>
+          <button id="clearFormBtn" class="btn ghost">Clear</button>
+        </div>
+
+        <hr class="line" />
+
+        <div class="actions">
+          <button id="exportCsvBtn" class="btn">Export CSV</button>
+          <button id="printBtn" class="btn">Print / PDF</button>
+          <button id="purgeBtn" class="btn danger">Clear All Logs</button>
+        </div>
+      </div>
+    </section>
+
+    <footer class="foot">
+      <p class="sub">
+        Tip: Use Print → “Save as PDF” on iPhone/desktop. Data stays on-device (LocalStorage).
+      </p>
+    </footer>
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>
