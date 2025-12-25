@@ -10,15 +10,15 @@ const panes = {
   new: $("tab-new")
 };
 
-// --- Selection Mode State ---
+// Selection mode state
 let selectMode = false;
 let selectionScope = "today"; // "today" or "week"
 let selectedIds = new Set();
 
-/* ---------- Date Helpers ---------- */
+/* ---------------- Date Helpers ---------------- */
 function startOfToday() {
   const d = new Date();
-  d.setHours(0,0,0,0);
+  d.setHours(0, 0, 0, 0);
   return d.getTime();
 }
 
@@ -27,11 +27,11 @@ function startOfWeek() {
   const day = d.getDay(); // 0 Sun
   const diff = (day === 0 ? 6 : day - 1); // Monday start
   d.setDate(d.getDate() - diff);
-  d.setHours(0,0,0,0);
+  d.setHours(0, 0, 0, 0);
   return d.getTime();
 }
 
-/* ---------- Storage ---------- */
+/* ---------------- Storage ---------------- */
 function loadLogs() {
   try { return JSON.parse(localStorage.getItem(LS_KEY) || "[]"); }
   catch { return []; }
@@ -49,7 +49,7 @@ function saveAuthor(name) {
   localStorage.setItem(LS_AUTHOR_KEY, (name || "").trim());
 }
 
-/* ---------- PHI Guard ---------- */
+/* ---------------- PHI Guard ---------------- */
 function phiLikely(text) {
   if (!text) return false;
   const patterns = [
@@ -62,14 +62,14 @@ function phiLikely(text) {
   return patterns.some(r => r.test(text));
 }
 
-/* ---------- Utils ---------- */
+/* ---------------- Utils ---------------- */
 function escapeHtml(str) {
   return String(str)
-    .replaceAll("&","&amp;")
-    .replaceAll("<","&lt;")
-    .replaceAll(">","&gt;")
-    .replaceAll('"',"&quot;")
-    .replaceAll("'","&#039;");
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
 }
 
 function setTab(name) {
@@ -77,10 +77,10 @@ function setTab(name) {
   Object.entries(panes).forEach(([k, pane]) => pane.classList.toggle("active", k === name));
 }
 
-/* ---------- Selection Mode Helpers ---------- */
+/* ---------------- Selection Mode ---------------- */
 function setSelecting(on, scope) {
   selectMode = on;
-  selectionScope = scope || selectionScope;
+  if (scope) selectionScope = scope;
 
   document.body.classList.toggle("selecting", selectMode);
   document.body.dataset.scope = selectionScope;
@@ -90,10 +90,8 @@ function setSelecting(on, scope) {
   $("actionBar").hidden = true;
   $("selectedCount").textContent = "0 selected";
 
-  // keep user on the correct tab when entering select mode
   if (selectMode) setTab(selectionScope);
 
-  // re-render so checkboxes enable/disable correctly
   render();
 }
 
@@ -113,7 +111,6 @@ function syncSelectedUI() {
     const cb = item.querySelector(".selectBox");
     if (!cb) return;
 
-    // Disable checkboxes if not in select mode
     cb.disabled = !selectMode;
 
     const isSelected = selectedIds.has(id);
@@ -128,7 +125,7 @@ function getSelectedLogs() {
   return logs.filter(l => selectedIds.has(l.id));
 }
 
-/* ---------- Rendering ---------- */
+/* ---------------- Render ---------------- */
 function entryNode(l, scope) {
   const el = document.createElement("div");
   el.className = "item";
@@ -153,34 +150,31 @@ function entryNode(l, scope) {
     </div>
     <div class="badge ${sevClass}">${escapeHtml(l.severity || "Low")}</div>
   `;
-
   return el;
 }
 
 function render() {
-  const logs = loadLogs().sort((a,b) => (b.ts || 0) - (a.ts || 0));
+  const logs = loadLogs().sort((a, b) => (b.ts || 0) - (a.ts || 0));
   const todayStart = startOfToday();
   const weekStart = startOfWeek();
 
   const todayLogs = logs.filter(l => (l.ts || 0) >= todayStart);
-  const weekLogs  = logs.filter(l => (l.ts || 0) >= weekStart);
+  const weekLogs = logs.filter(l => (l.ts || 0) >= weekStart);
 
   $("todayCount").textContent = `${todayLogs.length} entr${todayLogs.length === 1 ? "y" : "ies"}`;
-  $("weekCount").textContent  = `${weekLogs.length} entr${weekLogs.length === 1 ? "y" : "ies"}`;
+  $("weekCount").textContent = `${weekLogs.length} entr${weekLogs.length === 1 ? "y" : "ies"}`;
 
   $("todayList").innerHTML = todayLogs.length ? "" : `<p class="sub">No entries yet today.</p>`;
-  $("weekList").innerHTML  = weekLogs.length ? ""  : `<p class="sub">No entries yet this week.</p>`;
+  $("weekList").innerHTML = weekLogs.length ? "" : `<p class="sub">No entries yet this week.</p>`;
 
   todayLogs.forEach(l => $("todayList").appendChild(entryNode(l, "today")));
   weekLogs.forEach(l => $("weekList").appendChild(entryNode(l, "week")));
 
-  // Make sure checkbox state matches mode
   syncSelectedUI();
 }
 
-/* ---------- Form ---------- */
-function clearForm(hideWarn=true) {
-  // author stays
+/* ---------------- Form ---------------- */
+function clearForm(hideWarn = true) {
   $("shift").value = "";
   $("unit").value = "";
   $("type").value = "Replenishment";
@@ -190,9 +184,9 @@ function clearForm(hideWarn=true) {
   if (hideWarn) $("phiWarn").hidden = true;
 }
 
-/* ---------- Export ---------- */
+/* ---------------- Export ---------------- */
 function exportCsvFromLogs(logs, filenamePrefix) {
-  const header = ["timestamp","author","shift","unit","type","severity","qty","notes"];
+  const header = ["timestamp", "author", "shift", "unit", "type", "severity", "qty", "notes"];
   const rows = logs.map(l => ([
     new Date(l.ts).toISOString(),
     l.author || "",
@@ -201,11 +195,11 @@ function exportCsvFromLogs(logs, filenamePrefix) {
     l.type || "",
     l.severity || "",
     (l.qty ?? ""),
-    (l.notes || "").replaceAll("\n"," ").trim()
+    (l.notes || "").replaceAll("\n", " ").trim()
   ]));
 
   const csv = [header, ...rows]
-    .map(r => r.map(v => `"${String(v).replaceAll('"','""')}"`).join(","))
+    .map(r => r.map(v => `"${String(v).replaceAll('"', '""')}"`).join(","))
     .join("\n");
 
   const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
@@ -213,7 +207,7 @@ function exportCsvFromLogs(logs, filenamePrefix) {
 
   const a = document.createElement("a");
   a.href = url;
-  a.download = `${filenamePrefix}_${new Date().toISOString().slice(0,10)}.csv`;
+  a.download = `${filenamePrefix}_${new Date().toISOString().slice(0, 10)}.csv`;
   document.body.appendChild(a);
   a.click();
   a.remove();
@@ -222,22 +216,20 @@ function exportCsvFromLogs(logs, filenamePrefix) {
 }
 
 function exportSelectedCsv() {
-  const selected = getSelectedLogs().sort((a,b) => (a.ts||0) - (b.ts||0));
+  const selected = getSelectedLogs().sort((a, b) => (a.ts || 0) - (b.ts || 0));
   if (!selected.length) return;
   exportCsvFromLogs(selected, "unitflow_selected");
 }
 
 function exportAllCsv() {
-  const logs = loadLogs().sort((a,b) => (a.ts||0) - (b.ts||0));
+  const logs = loadLogs().sort((a, b) => (a.ts || 0) - (b.ts || 0));
   if (!logs.length) return;
   exportCsvFromLogs(logs, "unitflow_all");
 }
 
-/* ---------- Print ---------- */
+/* ---------------- Print ---------------- */
 function printSelected() {
   if (selectedIds.size === 0) return;
-
-  // Ensure we are on the correct tab before printing
   setTab(selectionScope);
   document.body.classList.add("printing-selected");
 
@@ -252,9 +244,9 @@ function printAll() {
   window.print();
 }
 
-/* ---------- Selected Table View (HTML) ---------- */
+/* ---------------- Selected Table View ---------------- */
 function openSelectedTable() {
-  const selected = getSelectedLogs().sort((a,b) => (a.ts||0) - (b.ts||0));
+  const selected = getSelectedLogs().sort((a, b) => (a.ts || 0) - (b.ts || 0));
   if (!selected.length) return;
 
   const title = `UnitFlow — Selected (${selectionScope === "today" ? "Today" : "Week"})`;
@@ -296,7 +288,6 @@ function openSelectedTable() {
 <body>
   <h1>${escapeHtml(title)}</h1>
   <p class="meta">Generated: ${escapeHtml(generated)} • Items: ${selected.length}</p>
-
   <table>
     <thead>
       <tr>
@@ -310,18 +301,15 @@ function openSelectedTable() {
         <th>Notes</th>
       </tr>
     </thead>
-    <tbody>
-      ${rowsHtml}
-    </tbody>
+    <tbody>${rowsHtml}</tbody>
   </table>
-
   <p class="tip">Tip: iPhone → Share → Print → pinch/zoom preview → Share → Save to Files (PDF).</p>
 </body>
 </html>`;
 
   const w = window.open("", "_blank");
   if (!w) {
-    alert("Pop-up blocked. Please allow pop-ups for this site, then try again.");
+    alert("Pop-up blocked. Allow pop-ups for this site then try again.");
     return;
   }
   w.document.open();
@@ -330,106 +318,110 @@ function openSelectedTable() {
   w.focus();
 }
 
-/* ---------- Tabs (FIX: always exit select mode) ---------- */
+/* ---------------- Tabs (KEY FIX) ---------------- */
+// Any tab click exits select mode so “New Log” never feels dead on iPhone
 tabs.forEach(t => t.addEventListener("click", (e) => {
   e.preventDefault();
   const target = t.dataset.tab;
-
-  // KEY FIX: leaving select mode prevents tab bar from feeling "dead" on iOS
   if (selectMode) setSelecting(false);
-
   setTab(target);
 }));
 
-/* ---------- Init ---------- */
-// Prefill author
-const savedAuthor = loadAuthor();
-if ($("author")) $("author").value = savedAuthor;
+/* ---------------- Init ---------------- */
+(function init() {
+  // Prefill author
+  const savedAuthor = loadAuthor();
+  if ($("author")) $("author").value = savedAuthor;
 
-// Save entry
-$("saveBtn").addEventListener("click", () => {
-  const authorInput = ($("author") ? $("author").value.trim() : "");
-  if (authorInput) saveAuthor(authorInput);
+  // Save entry
+  $("saveBtn").addEventListener("click", () => {
+    const authorInput = ($("author") ? $("author").value.trim() : "");
+    if (authorInput) saveAuthor(authorInput);
 
-  const entry = {
-    id: (crypto.randomUUID ? crypto.randomUUID() : String(Date.now())),
-    ts: Date.now(),
-    author: authorInput || loadAuthor(),
-    shift: $("shift").value.trim(),
-    unit: $("unit").value.trim(),
-    type: $("type").value,
-    severity: $("severity").value,
-    qty: $("qty").value,
-    notes: $("notes").value.trim()
-  };
+    const entry = {
+      id: (crypto.randomUUID ? crypto.randomUUID() : String(Date.now())),
+      ts: Date.now(),
+      author: authorInput || loadAuthor(),
+      shift: $("shift").value.trim(),
+      unit: $("unit").value.trim(),
+      type: $("type").value,
+      severity: $("severity").value,
+      qty: $("qty").value,
+      notes: $("notes").value.trim()
+    };
 
-  const warn = phiLikely(entry.notes) || phiLikely(entry.unit);
-  $("phiWarn").hidden = !warn;
+    const warn = phiLikely(entry.notes) || phiLikely(entry.unit);
+    $("phiWarn").hidden = !warn;
 
-  const logs = loadLogs();
-  logs.push(entry);
-  saveLogs(logs);
+    const logs = loadLogs();
+    logs.push(entry);
+    saveLogs(logs);
 
-  clearForm(false);
-  render();
-  setTab("today");
-});
+    clearForm(false);
+    render();
+    setTab("today");
+  });
 
-$("clearFormBtn").addEventListener("click", () => clearForm(true));
+  $("clearFormBtn").addEventListener("click", () => clearForm(true));
 
-// Enter selection mode
-$("selectTodayBtn").addEventListener("click", () => setSelecting(true, "today"));
-$("selectWeekBtn").addEventListener("click", () => setSelecting(true, "week"));
+  // Enter selection mode
+  $("selectTodayBtn").addEventListener("click", () => setSelecting(true, "today"));
+  $("selectWeekBtn").addEventListener("click", () => setSelecting(true, "week"));
 
-// Cancel selection
-$("cancelSelectBtn").addEventListener("click", () => setSelecting(false));
+  // Cancel selection
+  $("cancelSelectBtn").addEventListener("click", () => setSelecting(false));
 
-// Checkbox selection (delegated)
-document.addEventListener("change", (e) => {
-  const cb = e.target;
-  if (!cb.classList || !cb.classList.contains("selectBox")) return;
+  // Checkbox selection (delegated)
+  document.addEventListener("change", (e) => {
+    const cb = e.target;
+    if (!cb.classList || !cb.classList.contains("selectBox")) return;
 
-  // Ignore checkbox changes if not in select mode
-  if (!selectMode) {
-    cb.checked = false;
-    return;
+    // If not selecting, prevent stray toggles
+    if (!selectMode) {
+      cb.checked = false;
+      return;
+    }
+
+    const id = cb.dataset.id;
+    const item = cb.closest(".item");
+    if (!id || !item) return;
+
+    // Only allow selecting entries in current scope
+    if (item.dataset.scope !== selectionScope) {
+      cb.checked = false;
+      return;
+    }
+
+    if (cb.checked) selectedIds.add(id);
+    else selectedIds.delete(id);
+
+    item.classList.toggle("selected", cb.checked);
+    updateActionBar();
+  });
+
+  // Selected actions
+  $("viewSelectedBtn").addEventListener("click", openSelectedTable);
+  $("exportSelectedBtn").addEventListener("click", exportSelectedCsv);
+  $("printSelectedBtn").addEventListener("click", printSelected);
+
+  // All actions
+  $("exportCsvBtnAll").addEventListener("click", exportAllCsv);
+  $("printBtnAll").addEventListener("click", printAll);
+
+  // Purge
+  $("purgeBtn").addEventListener("click", () => {
+    if (!confirm("Clear ALL logs from this device?")) return;
+    localStorage.removeItem(LS_KEY);
+    selectedIds.clear();
+    setSelecting(false);
+    render();
+    setTab("today");
+  });
+
+  // Register service worker (PWA)
+  if ("serviceWorker" in navigator) {
+    navigator.serviceWorker.register("./sw.js").catch(() => {});
   }
 
-  const id = cb.dataset.id;
-  const item = cb.closest(".item");
-  if (!id || !item) return;
-
-  // Only allow selecting inside current scope
-  if (item.dataset.scope !== selectionScope) {
-    cb.checked = false;
-    return;
-  }
-
-  if (cb.checked) selectedIds.add(id);
-  else selectedIds.delete(id);
-
-  item.classList.toggle("selected", cb.checked);
-  updateActionBar();
-});
-
-// Selected actions
-$("viewSelectedBtn").addEventListener("click", openSelectedTable);
-$("exportSelectedBtn").addEventListener("click", exportSelectedCsv);
-$("printSelectedBtn").addEventListener("click", printSelected);
-
-// All actions
-$("exportCsvBtnAll").addEventListener("click", exportAllCsv);
-$("printBtnAll").addEventListener("click", printAll);
-
-// Purge
-$("purgeBtn").addEventListener("click", () => {
-  if (!confirm("Clear ALL logs from this device?")) return;
-  localStorage.removeItem(LS_KEY);
-  selectedIds.clear();
-  setSelecting(false);
   render();
-  setTab("today");
-});
-
-// First render
-render();
+})();
