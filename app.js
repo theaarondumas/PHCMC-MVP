@@ -9,83 +9,49 @@ const panes = {
   new: $("tab-new")
 };
 
+// --- Selection Mode State ---
+let selectMode = false;
+let selectionScope = "today"; // "today" or "week"
+let selectedIds = new Set();
+
 function nowISO() {
   return new Date().toISOString();
 }
+
 function startOfToday() {
   const d = new Date();
   d.setHours(0,0,0,0);
   return d.getTime();
 }
+
 function startOfWeek() {
   const d = new Date();
   const day = d.getDay(); // 0 Sun
-  const diff = (day === 0 ? 6 : day - 1); // Mon as start
+  const diff = (day === 0 ? 6 : day - 1); // Monday start
   d.setDate(d.getDate() - diff);
   d.setHours(0,0,0,0);
   return d.getTime();
 }
 
 function loadLogs() {
-  try {
-    return JSON.parse(localStorage.getItem(LS_KEY) || "[]");
-  } catch {
-    return [];
-  }
+  try { return JSON.parse(localStorage.getItem(LS_KEY) || "[]"); }
+  catch { return []; }
 }
+
 function saveLogs(logs) {
   localStorage.setItem(LS_KEY, JSON.stringify(logs));
 }
 
 function phiLikely(text) {
   if (!text) return false;
-  // simple pattern warnings (not blocking)
   const patterns = [
     /\b(MRN|medical record)\b/i,
     /\bDOB\b/i,
-    /\b\d{2}\/\d{2}\/\d{4}\b/,         // date
+    /\b\d{2}\/\d{2}\/\d{4}\b/,
     /\broom\s?#?\d+\b/i,
     /\bbed\s?#?\d+\b/i
   ];
   return patterns.some(r => r.test(text));
-}
-
-function render() {
-  const logs = loadLogs().sort((a,b) => (b.ts || 0) - (a.ts || 0));
-  const todayStart = startOfToday();
-  const weekStart = startOfWeek();
-
-  const todayLogs = logs.filter(l => (l.ts || 0) >= todayStart);
-  const weekLogs  = logs.filter(l => (l.ts || 0) >= weekStart);
-
-  $("todayCount").textContent = `${todayLogs.length} entr${todayLogs.length === 1 ? "y" : "ies"}`;
-  $("weekCount").textContent  = `${weekLogs.length} entr${weekLogs.length === 1 ? "y" : "ies"}`;
-
-  $("todayList").innerHTML = todayLogs.length ? "" : `<p class="sub">No entries yet today.</p>`;
-  $("weekList").innerHTML  = weekLogs.length ? ""  : `<p class="sub">No entries yet this week.</p>`;
-
-  todayLogs.forEach(l => $("todayList").appendChild(entryNode(l)));
-  weekLogs.forEach(l => $("weekList").appendChild(entryNode(l)));
-}
-
-function entryNode(l) {
-  const el = document.createElement("div");
-  el.className = "item";
-  const sevClass = l.severity === "High" ? "high" : (l.severity === "Medium" ? "med" : "low");
-  const when = new Date(l.ts).toLocaleString();
-  const qty = (l.qty !== "" && l.qty != null) ? ` • Qty: ${l.qty}` : "";
-  const unit = l.unit ? ` • ${escapeHtml(l.unit)}` : "";
-  const shift = l.shift ? ` • ${escapeHtml(l.shift)}` : "";
-
-  el.innerHTML = `
-    <div class="left">
-      <div><strong>${escapeHtml(l.type || "Entry")}</strong></div>
-      <div class="meta">${when}${shift}${unit}${qty}</div>
-      ${l.notes ? `<div class="meta">${escapeHtml(l.notes)}</div>` : ""}
-    </div>
-    <div class="badge ${sevClass}">${escapeHtml(l.severity || "Low")}</div>
-  `;
-  return el;
 }
 
 function escapeHtml(str) {
@@ -104,30 +70,52 @@ function setTab(name) {
 
 tabs.forEach(t => t.addEventListener("click", () => setTab(t.dataset.tab)));
 
-$("saveBtn").addEventListener("click", () => {
-  const entry = {
-    id: crypto.randomUUID ? crypto.randomUUID() : String(Date.now()),
-    ts: Date.now(),
-    shift: $("shift").value.trim(),
-    unit: $("unit").value.trim(),
-    type: $("type").value,
-    severity: $("severity").value,
-    qty: $("qty").value,
-    notes: $("notes").value.trim()
-  };
+function entryNode(l, scope) {
+  const el = document.createElement("div");
+  el.className = "item";
+  el.dataset.id = l.id;
+  el.dataset.scope = scope;
 
-  // show warning (non-blocking)
-  const warn = phiLikely(entry.notes) || phiLikely(entry.unit);
-  $("phiWarn").hidden = !warn;
+  const sevClass = l.severity === "High" ? "high" : (l.severity === "Medium" ? "med" : "low");
+  const when = new Date(l.ts).toLocaleString();
+  const qty = (l.qty !== "" && l.qty != null) ? ` • Qty: ${l.qty}` : "";
+  const unit = l.unit ? ` • ${escapeHtml(l.unit)}` : "";
+  const shift = l.shift ? ` • ${escapeHtml(l.shift)}` : "";
 
-  const logs = loadLogs();
-  logs.push(entry);
-  saveLogs(logs);
+  el.innerHTML = `
+    <div class="item-top">
+      <input type="checkbox" class="selectBox" data-id="${escapeHtml(l.id)}" />
+      <div class="left">
+        <div><strong>${escapeHtml(l.type || "Entry")}</strong></div>
+        <div class="meta">${when}${shift}${unit}${qty}</div>
+        ${l.notes ? `<div class="meta">${escapeHtml(l.notes)}</div>` : ""}
+      </div>
+    </div>
+    <div class="badge ${sevClass}">${escapeHtml(l.severity || "Low")}</div>
+  `;
 
-  clearForm(false);
-  render();
-  setTab("today");
-});
+  return el;
+}
+
+function render() {
+  const logs = loadLogs().sort((a,b) => (b.ts || 0) - (a.ts || 0));
+  const todayStart = startOfToday();
+  const weekStart = startOfWeek();
+
+  const todayLogs = logs.filter(l => (l.ts || 0) >= todayStart);
+  const weekLogs  = logs.filter(l => (l.ts || 0) >= weekStart);
+
+  $("todayCount").textContent = `${todayLogs.length} entr${todayLogs.length === 1 ? "y" : "ies"}`;
+  $("weekCount").textContent  = `${weekLogs.length} entr${weekLogs.length === 1 ? "y" : "ies"}`;
+
+  $("todayList").innerHTML = todayLogs.length ? "" : `<p class="sub">No entries yet today.</p>`;
+  $("weekList").innerHTML  = weekLogs.length ? ""  : `<p class="sub">No entries yet this week.</p>`;
+
+  todayLogs.forEach(l => $("todayList").appendChild(entryNode(l, "today")));
+  weekLogs.forEach(l => $("weekList").appendChild(entryNode(l, "week")));
+
+  if (selectMode) syncSelectedUI();
+}
 
 function clearForm(hideWarn=true) {
   $("shift").value = "";
@@ -139,10 +127,54 @@ function clearForm(hideWarn=true) {
   if (hideWarn) $("phiWarn").hidden = true;
 }
 
-$("clearFormBtn").addEventListener("click", () => clearForm(true));
+// ---------- Selection Mode Helpers ----------
+function setSelecting(on, scope) {
+  selectMode = on;
+  selectionScope = scope || selectionScope;
 
-$("exportCsvBtn").addEventListener("click", () => {
-  const logs = loadLogs().sort((a,b) => (a.ts||0) - (b.ts||0));
+  document.body.classList.toggle("selecting", selectMode);
+  document.body.dataset.scope = selectionScope;
+
+  if (!selectMode) {
+    selectedIds.clear();
+    clearSelectedUI();
+    $("actionBar").hidden = true;
+  } else {
+    selectedIds.clear();
+    clearSelectedUI();
+    $("actionBar").hidden = true; // show only after 1+ checked
+    $("selectedCount").textContent = "0 selected";
+  }
+}
+
+function clearSelectedUI() {
+  document.querySelectorAll(".item.selected").forEach(n => n.classList.remove("selected"));
+  document.querySelectorAll(".selectBox:checked").forEach(cb => { cb.checked = false; });
+}
+
+function updateActionBar() {
+  $("selectedCount").textContent = `${selectedIds.size} selected`;
+  $("actionBar").hidden = !(selectMode && selectedIds.size > 0);
+}
+
+function syncSelectedUI() {
+  document.querySelectorAll(".item").forEach(item => {
+    const id = item.dataset.id;
+    const cb = item.querySelector(".selectBox");
+    if (!cb) return;
+    const isSelected = selectedIds.has(id);
+    cb.checked = isSelected;
+    item.classList.toggle("selected", isSelected);
+  });
+  updateActionBar();
+}
+
+function getSelectedLogs() {
+  const logs = loadLogs();
+  return logs.filter(l => selectedIds.has(l.id));
+}
+
+function exportCsvFromLogs(logs, filenamePrefix) {
   const header = ["timestamp","shift","unit","type","severity","qty","notes"];
   const rows = logs.map(l => ([
     new Date(l.ts).toISOString(),
@@ -162,19 +194,119 @@ $("exportCsvBtn").addEventListener("click", () => {
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
-  a.download = `unitflow_logs_${new Date().toISOString().slice(0,10)}.csv`;
+  a.download = `${filenamePrefix}_${new Date().toISOString().slice(0,10)}.csv`;
   document.body.appendChild(a);
   a.click();
   a.remove();
   URL.revokeObjectURL(url);
+}
+
+function exportSelectedCsv() {
+  const selected = getSelectedLogs().sort((a,b) => (a.ts||0) - (b.ts||0));
+  if (!selected.length) return;
+  exportCsvFromLogs(selected, "unitflow_selected");
+}
+
+function exportAllCsv() {
+  const logs = loadLogs().sort((a,b) => (a.ts||0) - (b.ts||0));
+  if (!logs.length) return;
+  exportCsvFromLogs(logs, "unitflow_all");
+}
+
+function printSelected() {
+  if (selectedIds.size === 0) return;
+
+  // ensure visible list matches scope (today/week)
+  setTab(selectionScope);
+
+  // hide everything not selected during print
+  document.body.classList.add("printing-selected");
+
+  // give browser a tick to apply CSS before print
+  setTimeout(() => {
+    window.print();
+    // remove print-only class after user returns
+    setTimeout(() => document.body.classList.remove("printing-selected"), 400);
+  }, 50);
+}
+
+function printAll() {
+  // printing ALL just prints whatever tab you're on; simplest: switch to week to show more
+  // You can change this behavior later if you want a dedicated "All Logs" print view.
+  window.print();
+}
+
+// ---------- Event Listeners ----------
+
+// Save entry
+$("saveBtn").addEventListener("click", () => {
+  const entry = {
+    id: (crypto.randomUUID ? crypto.randomUUID() : String(Date.now())),
+    ts: Date.now(),
+    shift: $("shift").value.trim(),
+    unit: $("unit").value.trim(),
+    type: $("type").value,
+    severity: $("severity").value,
+    qty: $("qty").value,
+    notes: $("notes").value.trim()
+  };
+
+  const warn = phiLikely(entry.notes) || phiLikely(entry.unit);
+  $("phiWarn").hidden = !warn;
+
+  const logs = loadLogs();
+  logs.push(entry);
+  saveLogs(logs);
+
+  clearForm(false);
+  render();
+  setTab("today");
 });
 
-$("printBtn").addEventListener("click", () => window.print());
+$("clearFormBtn").addEventListener("click", () => clearForm(true));
+
+// Enter selection mode
+$("selectTodayBtn").addEventListener("click", () => setSelecting(true, "today"));
+$("selectWeekBtn").addEventListener("click", () => setSelecting(true, "week"));
+
+// Cancel selection
+$("cancelSelectBtn").addEventListener("click", () => setSelecting(false));
+
+// Checkbox selection (delegated)
+document.addEventListener("change", (e) => {
+  const cb = e.target;
+  if (!cb.classList || !cb.classList.contains("selectBox")) return;
+
+  const id = cb.dataset.id;
+  const item = cb.closest(".item");
+  if (!id || !item) return;
+
+  // enforce scope
+  if (item.dataset.scope !== selectionScope) {
+    cb.checked = false;
+    return;
+  }
+
+  if (cb.checked) selectedIds.add(id);
+  else selectedIds.delete(id);
+
+  item.classList.toggle("selected", cb.checked);
+  updateActionBar();
+});
+
+// Selected actions
+$("exportSelectedBtn").addEventListener("click", exportSelectedCsv);
+$("printSelectedBtn").addEventListener("click", printSelected);
+
+// All actions (New Log tab)
+$("exportCsvBtnAll").addEventListener("click", exportAllCsv);
+$("printBtnAll").addEventListener("click", printAll);
 
 $("purgeBtn").addEventListener("click", () => {
   const ok = confirm("Clear ALL logs from this device? This cannot be undone.");
   if (!ok) return;
   localStorage.removeItem(LS_KEY);
+  setSelecting(false);
   render();
   setTab("today");
 });
@@ -196,7 +328,9 @@ $("installBtn").addEventListener("click", async () => {
 
 // Register service worker
 if ("serviceWorker" in navigator) {
-  window.addEventListener("load", () => navigator.serviceWorker.register("sw.js").catch(()=>{}));
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("sw.js").catch(()=>{});
+  });
 }
 
 render();
