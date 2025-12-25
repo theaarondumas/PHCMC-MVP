@@ -124,7 +124,7 @@ body.selecting .selectBox{display:inline-block}
   box-shadow: 0 0 0 1px rgba(255,255,255,.12) inset;
 }
 
-/* While selecting, hide items not in selected scope (prevents confusion) */
+/* While selecting, hide items not in selected scope */
 body.selecting[data-scope="today"] .item[data-scope="week"]{display:none}
 body.selecting[data-scope="week"] .item[data-scope="today"]{display:none}
 
